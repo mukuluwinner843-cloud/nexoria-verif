@@ -1,0 +1,30 @@
+{
+  "_mode_d_emploi": "Une entrée par document. statut : « valide » (après contrôle humain) ou « en_attente ». Supprime les lignes de test avant mise en service.",
+  "documents": [
+    {
+      "code": "NX-2026-1017-REPERE-STD",
+      "pack": "Standard",
+      "document": "Devoir de géographie",
+      "date": "12/10/2026",
+      "statut": "en_attente",
+      "mis_a_jour": "2026-10-22"
+    },
+    {
+      "code": "NX-2026-1017-REPERE-EXC",
+      "pack": "Excellence",
+      "document": "Devoir de géographie",
+      "date": "12/10/2026",
+      "statut": "en_attente",
+      "mis_a_jour": "2026-10-22"
+    },
+    {
+      "code": "NX-2026-1022-MARISE-GEO",
+      "pack": "Standard",
+      "document": "Devoir de géographie",
+      "date": "",
+      "statut": "en_attente",
+      "mis_a_jour": "2026-10-22",
+      "empreinte": "0632793958aaa37b1cf2b0b822473f75c6aa192ce3fc32d81adc6617363f9d82"
+    }
+  ]
+}
