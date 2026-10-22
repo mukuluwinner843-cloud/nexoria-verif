@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Vérification de document · NEXORIA</title>
+<style>
+  :root { --parch:#F8F6F0; --or:#B89252; --char:#1C1C1C; --gris:#666666; --ok:#2F6B3A; --att:#8A6A1F; --ko:#8B2E2E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --parch:#1C1C1C; --char:#F8F6F0; --gris:#B5B0A4; } }
+  body { margin:0; background:var(--parch); color:var(--char); font-family: system-ui, "DejaVu Sans", Arial, sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:32px 18px 48px; }
+  .brand { text-align:center; color:var(--or); font-weight:600; letter-spacing:.35em; font-size:13px; }
+  h1 { font-family: Georgia, "DejaVu Serif", serif; font-size:26px; text-align:center; margin:22px 0 6px; }
+  .sub { text-align:center; color:var(--gris); font-style:italic; margin:0 0 26px; }
+  .rule { height:1px; background:var(--or); margin:18px auto 24px; width:70%; }
+  form { display:flex; gap:8px; }
+  input { flex:1; min-width:0; padding:12px 14px; font-size:16px; border:1px solid var(--or); background:transparent; color:var(--char); border-radius:4px; text-transform:uppercase; }
+  button { padding:12px 18px; font-size:15px; border:0; background:var(--or); color:#fff; border-radius:4px; cursor:pointer; }
+  #res { margin-top:26px; border:1px solid var(--or); border-radius:6px; padding:18px; background:rgba(184,146,82,.07); }
+  .statut { font-weight:700; font-size:17px; margin:0 0 12px; }
+  .statut.valide { color:var(--ok); } .statut.att { color:var(--att); } .statut.ko { color:var(--ko); }
+  dl { display:grid; grid-template-columns: 9em 1fr; gap:6px 12px; margin:0; font-size:15px; }
+  dt { color:var(--gris); } dd { margin:0; font-weight:600; }
+  h2.h2 { font-family: Georgia, "DejaVu Serif", serif; font-size:19px; text-align:center; margin:0 0 6px; }
+  .small { font-size:14px; margin-bottom:14px; }
+  .drop { display:block; border:1px dashed var(--or); border-radius:6px; padding:18px; text-align:center; cursor:pointer; color:var(--gris); }
+  .drop input { display:none; }
+  #fres { margin-top:16px; border:1px solid var(--or); border-radius:6px; padding:16px; background:rgba(184,146,82,.07); }
+  .note { margin-top:30px; font-size:13px; color:var(--gris); line-height:1.5; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">N E X O R I A</div>
+  <h1>Vérification de document</h1>
+  <p class="sub">Saisissez le code de vérification imprimé sur le certificat, ou scannez le QR code.</p>
+  <form id="f" autocomplete="off">
+    <input id="code" name="code" placeholder="NX-2026-…" aria-label="Code de vérification" maxlength="60">
+    <button type="submit">Vérifier</button>
+  </form>
+  <section id="res" hidden></section>
+  <div class="rule"></div>
+  <h2 class="h2">Vérifier le fichier numérique</h2>
+  <p class="sub small">Déposez le PDF reçu. Il est comparé par son empreinte, sans être envoyé nulle part : le calcul se fait dans votre navigateur.</p>
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept="application/pdf">
+    <span id="droptxt">Choisir un fichier PDF</span>
+  </label>
+  <section id="fres" hidden></section>
+  <div class="rule"></div>
+  <p class="note">Cette page affiche uniquement le statut enregistré par NEXORIA. Un document n'est présenté comme validé que si NEXORIA l'a validé après contrôle humain. En cas de doute, contactez NEXORIA.</p>
+</main>
+<script>
+(function () {
+  var form = document.getElementById('f');
+  var input = document.getElementById('code');
+  var res = document.getElementById('res');
+
+  function text(el, t) { el.textContent = t; }
+
+  function render(d, code) {
+    res.hidden = false;
+    res.textContent = '';
+    var p = document.createElement('p');
+    var cls, label;
+    if (!d) { cls = 'ko'; label = 'Code introuvable'; }
+    else if (d.statut === 'valide') { cls = 'valide'; label = 'Document validé par NEXORIA'; }
+    else { cls = 'att'; label = 'Enregistré, en attente de validation humaine'; }
+    p.className = 'statut ' + cls;
+    p.textContent = label;
+    res.appendChild(p);
+    if (d) {
+      var dl = document.createElement('dl');
+      [['Code', d.code], ['Pack', d.pack], ['Document', d.document], ['Date de remise', d.date],
+       ['Mis à jour', d.mis_a_jour]].forEach(function (row) {
+        var dt = document.createElement('dt'); dt.textContent = row[0];
+        var dd = document.createElement('dd'); dd.textContent = row[1] || '—';
+        dl.appendChild(dt); dl.appendChild(dd);
+      });
+      res.appendChild(dl);
+    } else {
+      var p2 = document.createElement('p');
+      p2.textContent = 'Vérifiez la saisie. Le code est composé de lettres, de chiffres et de tirets.';
+      res.appendChild(p2);
+    }
+  }
+
+  function lookup(code) {
+    var c = code.trim().toUpperCase();
+    res.hidden = false; text(res, 'Vérification en cours…');
+    fetch('verifications.json', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('registre indisponible'); return r.json(); })
+      .then(function (data) {
+        var d = (data.documents || []).find(function (x) { return String(x.code).toUpperCase() === c; });
+        render(d, c);
+      })
+      .catch(function () {
+        res.hidden = false; text(res, 'Le registre est temporairement indisponible. Réessayez plus tard.');
+      });
+  }
+
+  var fileInput = document.getElementById('file');
+  var fres = document.getElementById('fres');
+  var droptxt = document.getElementById('droptxt');
+
+  function sha256Hex(buf) {
+    return crypto.subtle.digest('SHA-256', buf).then(function (h) {
+      return Array.from(new Uint8Array(h)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    });
+  }
+
+  function showFile(html) { fres.hidden = false; fres.innerHTML = html; }
+
+  fileInput.addEventListener('change', function () {
+    var f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    droptxt.textContent = f.name;
+    showFile('Calcul de l\'empreinte…');
+    f.arrayBuffer().then(sha256Hex).then(function (hash) {
+      return fetch('verifications.json', { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('registre'); return r.json(); })
+        .then(function (data) {
+          var d = (data.documents || []).find(function (x) { return x.empreinte === hash; });
+          var code = (input.value || new URLSearchParams(location.search).get('code') || '').trim().toUpperCase();
+          var msg, cls;
+          if (!d) {
+            cls = 'ko'; msg = 'Ce fichier ne correspond à aucun document enregistré.';
+          } else if (code && code !== String(d.code).toUpperCase()) {
+            cls = 'ko'; msg = 'Ce fichier correspond à un autre code que celui saisi.';
+          } else if (d.statut === 'valide') {
+            cls = 'valide'; msg = 'Fichier identique au document validé par NEXORIA (code ' + d.code + ').';
+          } else {
+            cls = 'att'; msg = 'Fichier identique au document enregistré (code ' + d.code + '), en attente de validation humaine.';
+          }
+          var p = '<p class="statut ' + cls + '"></p>';
+          showFile(p);
+          fres.querySelector('.statut').textContent = msg;
+          var empr = document.createElement('p'); empr.className = 'small';
+          empr.textContent = 'Empreinte SHA-256 : ' + hash;
+          fres.appendChild(empr);
+        });
+    }).catch(function () {
+      showFile('Vérification impossible pour le moment. Réessayez plus tard.');
+    });
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = input.value.trim();
+    if (!v) return;
+    history.replaceState(null, '', '?code=' + encodeURIComponent(v));
+    lookup(v);
+  });
+
+  var q = new URLSearchParams(location.search).get('code');
+  if (q) { input.value = q; lookup(q); }
+})();
+</script>
+</body>
+</html>
